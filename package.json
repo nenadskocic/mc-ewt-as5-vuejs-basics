@@ -1,0 +1,19 @@
+{
+  "name": "mc-ewt-as5-vuejs-basics",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://nskocic@bitbucket.org/nskocic/mc-ewt-as5-vuejs-basics.git"
+  },
+  "author": "Nenad Skocic, 000107650",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://bitbucket.org/nskocic/mc-ewt-as5-vuejs-basics/issues"
+  },
+  "homepage": "https://bitbucket.org/nskocic/mc-ewt-as5-vuejs-basics#readme"
+}
