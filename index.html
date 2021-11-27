@@ -1,5 +1,9 @@
 <!DOCTYPE html>
-<html >
+    <!--
+        "StAuth10222: I Nenad Skocic, 000107650 certify that this material is my original work. No other person's work has been used 
+        without due acknowledgement. I have not made my work available to anyone else."
+    -->
+<html>
     <head>
         <title></title>
         <script src="https://unpkg.com/vue@next"></script>
@@ -45,6 +49,10 @@
             }
             .custom-control.custom-switch {
                 padding-left: 0;
+                
+            }
+            .custom-control-input::after {
+                background-color: green !important;
             }
             #createBtn {
                 float: right;
@@ -62,6 +70,10 @@
             table th {
                 background-color: lightgrey;
             }
+            table td, th {
+                border-style: solid;
+                border-color: black 1px;
+            }
             table input {
                 height: 30px;
                 width: 30px;
@@ -72,12 +84,12 @@
                 left: 50%;
                 transform: translate(-50%, -50%);
                 width: 400px;
-                height: 200px;
+                height: 250px;
                 border-style: solid;
                 border-color: black;
                 background-color: lightgray;
             }
-            .modCourse form {
+            .modCourse {
                 display: table;
                 padding: 20px 0 20px 20px;
             }
@@ -89,6 +101,33 @@
             }
             #newCourseGrade {
                 width: 189.33px;
+            }
+            #stats {
+                margin-top: 20px;
+                background-color: darkgray;
+                height: 50px;
+                display: flex;
+                align-items: center;
+                width: 100%;
+            }
+            #min {
+                margin-left: 20px;
+            }
+            #min, #max, #avg {
+                font-size: 24px;
+                width: 250px;
+                display: flex;
+                margin-right: 20px;
+            }
+            #minStat, #maxStat, #avgStat {
+                padding-left: 10px;
+                color: green;
+            }
+            .modalBtns {
+                margin-top: 20px;
+            }
+            #error {
+                list-style: none;
             }
         </style>
     </head>
@@ -108,8 +147,8 @@
             </div>
             <div id="failed">
                 <div class="custom-control custom-switch">
-                    <input type="checkbox" class="custom-control-input" id="failedSwitch" v-model="failedSwitch" @click="failedFilter">
-                    <label class="custom-control-label" for="failedSwitch">Failed</label>
+                    <input type="checkbox" class="custom-control-input" id="flSwitch" v-model="flSwitch" @click="failedFilter">
+                    <label class="custom-control-label" for="flSwitch">Failed</label>
                 </div>
             </div>
             <div id="create">
@@ -127,9 +166,9 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-for="(course, index) in filteredData" v-bind:key="index">
-                        <td>{{ course.course }}</td>
-                        <td>{{ course.grade }}</td>
+                    <tr v-for="(data, index) in filteredData" v-bind:key="index">
+                        <td>{{ data.course }}</td>
+                        <td>{{ data.grade }}</td>
                         <td>
                             <input type="image" src="edit-icon.png" />
                         </td>
@@ -146,8 +185,13 @@
                 <div>
                     <h1>New Course</h1>
                 </div>
-                <div class="modCourse">
-                    <form v-model="submitValid">
+                <p v-if="formErrors.length">
+                    <ul>
+                        <li v-for="error in formErrors" id="error">{{ formErrors[0] }}</li>
+                    </ul>
+                </p>
+                <form>
+                    <div class="modCourse">
                         <p>
                             <label for="newCourseName">Course Name:</label>
                             <input type="text" id="newCourseName" v-model="newCourseName">
@@ -156,19 +200,31 @@
                             <label for="newCourseGrade">Grade:</label>
                             <input type="number" id="newCourseGrade" v-model="newCourseGrade" min="0" max="100">
                         </p>
-                    </form>
-                </div>
-                <div class=modalBtns>
-                    <slot>
-                        <input type="submit"  @click="addCourse()"></input>
-                        <input type="submit" value="cancel" @click="cancel" />
-                    </slot>
-                </div>      
+                    </div>
+                    <div class=modalBtns>
+                        <slot>
+                            <input type="submit" @click="addCourse"></input>
+                            <input type="submit" value="Cancel" @click="cancel" />
+                        </slot>
+                    </div> 
+                </form>     
             </div>    
         </div>
 
-        <span>{{ data }}</span>
-
+        <div id="stats">
+            <div id="min">
+                <p>Min: </p>
+                <p id="minStat">{{ minCalc.grade }}</p>
+            </div>
+            <div id="max">
+                <p>Max: </p>
+                <p id="maxStat">{{ maxCalc.grade }}</p>
+            </div>
+            <div id="avg">
+                <p>Avg: </p>
+                <p id="avgStat">{{ avgCalc }}</p>
+            </div>
+        </div>
         <script>
             const Data = {
                 data() {
@@ -185,42 +241,89 @@
                         newCourseName: "",
                         newCourseGrade: "",
                         searchFilter: "",
-                        isSubmitValid: false,
                         honoursSwitch: false,
-                        failedSwitch: false
-
+                        flSwitch: false,
+                        formErrors: []
                     });   
                 },
                 computed: {
-                    filteredData: function() {
+                    filteredData: function () {
                         let self = this;
 
-                        return this.data.filter(function(x) {
-                            return x.course.toLowerCase().indexOf(self.searchFilter.toLowerCase()) >= 0; 
-                        });
+                        return this.data
+                            .filter(function(x) {
+                                return x.course.toLowerCase().indexOf(self.searchFilter.toLowerCase()) >= 0; 
+                            })
+                            .filter(this.honoursFilter)
+                            .filter(this.failedFilter)   
+                    },
+                    minCalc() {
+                        while(this.data.length) {
+                            return this.filteredData.reduce((x, y) => Number(x.grade) < Number(y.grade) ? x : y);
+                        }
+                        return 0;
+                    },
+                    maxCalc() {
+                        while(this.filteredData.length) {
+                            return this.filteredData.reduce((x, y) => Number(x.grade) > Number(y.grade) ? x : y);
+                        }
+                        return 0;
+                    },
+                    avgCalc() {
+                        let sum = 0;
+                        let avg = 0;
+
+                        if(this.filteredData.length == 0) {
+                            return avg = "";
+                        }
+
+                        for(var i = 0; i < this.filteredData.length; i++) { 
+                            sum += Number(this.filteredData[i].grade);
+                            avg = sum / this.filteredData.length;  
+                        }
+                        return avg.toFixed(2);
                     }
                 },
                 methods: {
-                    delGrades(index) {
-                        this.data.splice(index, 1);
-                    },
                     showModalContainer() {
                         this.modalVis = true;
+                    },
+                    addCourse: function(e) {
+                        if(this.newCourseName && this.newCourseGrade) {
+                            this.data.push({
+                                course: this.newCourseName, grade: this.newCourseGrade
+                            });  
+                            this.newCourseName = "";
+                            this.newCourseGrade = "";
+                            this.modalVis = false;
+                        } else {
+                            this.formErrors.push("Please input both course name & grade!");
+                        }
+                        e.preventDefault();
                     }, 
                     cancel() {
                         this.modalVis = false;
+                        this.formErrors = [];
+                        this.newCourseName = "";
+                        this.newCourseGrade = "";
                     },
-                    addCourse() {
-                        this.data.push({
-                            course: this.newCourseName, grade: this.newCourseGrade
-                        });
+                    honoursFilter(data) {
+                        if (this.honoursSwitch == true) {
+                            return data.grade >= 80;
+                        } else {
+                            return data;
+                        }
                     },
-                    honoursFilter() {
-                        //return console.log(this.data.filter(x => this.data.grade >= 0 ));  
+                    failedFilter(data) {
+                        if (this.flSwitch == true) {
+                            return data.grade < 50;
+                        } else {
+                            return data;
+                        }
                     },
-                    failedFilter() {
-
-                    }
+                    delGrades(index) {
+                        this.data.splice(index, 1);
+                    },
                 }
             }
             const app = Vue.createApp(Data).mount("#app");
